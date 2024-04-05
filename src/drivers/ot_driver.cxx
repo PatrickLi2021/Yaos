@@ -59,8 +59,8 @@ void OTDriver::OT_send(std::string m0, std::string m1)
   auto [decrypted_receiver_to_sender_data, receiver_to_sender_msg_decrypted] = this->crypto_driver->decrypt_and_verify(this->AES_key, this->HMAC_key, receiver_to_sender_msg_data);
   if (!receiver_to_sender_msg_decrypted)
   {
-    throw std::runtime_error("Could not decrypt the receiver to sender OT message");
     this->network_driver->disconnect();
+    throw std::runtime_error("Could not decrypt the receiver to sender OT message");
   }
   receiver_to_sender_OT_pub_msg.deserialize(decrypted_receiver_to_sender_data);
 
