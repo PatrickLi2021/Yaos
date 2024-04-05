@@ -8,8 +8,9 @@ Syntax to use logger:
   CUSTOM_LOG(lg, debug) << "your message"
 See logger.hpp for more modes besides 'debug'
 */
-namespace {
-src::severity_logger<logging::trivial::severity_level> lg;
+namespace
+{
+  src::severity_logger<logging::trivial::severity_level> lg;
 }
 
 /**
@@ -17,7 +18,8 @@ src::severity_logger<logging::trivial::severity_level> lg;
  */
 EvaluatorClient::EvaluatorClient(Circuit circuit,
                                  std::shared_ptr<NetworkDriver> network_driver,
-                                 std::shared_ptr<CryptoDriver> crypto_driver) {
+                                 std::shared_ptr<CryptoDriver> crypto_driver)
+{
   this->circuit = circuit;
   this->network_driver = network_driver;
   this->crypto_driver = crypto_driver;
@@ -29,7 +31,8 @@ EvaluatorClient::EvaluatorClient(Circuit circuit,
  * Handle key exchange with evaluator
  */
 std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
-EvaluatorClient::HandleKeyExchange() {
+EvaluatorClient::HandleKeyExchange()
+{
   // Generate private/public DH keys
   auto dh_values = this->crypto_driver->DH_initialize();
 
@@ -72,7 +75,8 @@ EvaluatorClient::HandleKeyExchange() {
  * You may also find `string_to_byteblock` useful for converting OT output to
  * wires Disconnect and throw errors only for invalid MACs
  */
-std::string EvaluatorClient::run(std::vector<int> input) {
+std::string EvaluatorClient::run(std::vector<int> input)
+{
   // Key exchange
   auto keys = this->HandleKeyExchange();
 
@@ -86,14 +90,15 @@ std::string EvaluatorClient::run(std::vector<int> input) {
  * To retrieve the label from a decryption, use snip_decryption.
  */
 GarbledWire EvaluatorClient::evaluate_gate(GarbledGate gate, GarbledWire lhs,
-                                           GarbledWire rhs) {
-  // TODO: implement me!
+                                           GarbledWire rhs)
+{
 }
 
 /**
  * Verify decryption. A valid dec should end with LABEL_TAG_LENGTH bits of 0s.
  */
-bool EvaluatorClient::verify_decryption(CryptoPP::SecByteBlock decryption) {
+bool EvaluatorClient::verify_decryption(CryptoPP::SecByteBlock decryption)
+{
   CryptoPP::SecByteBlock trail(decryption.data() + LABEL_LENGTH,
                                LABEL_TAG_LENGTH);
   return byteblock_to_integer(trail) == CryptoPP::Integer::Zero();
@@ -103,7 +108,8 @@ bool EvaluatorClient::verify_decryption(CryptoPP::SecByteBlock decryption) {
  * Returns the first LABEL_LENGTH bits of a decryption.
  */
 CryptoPP::SecByteBlock
-EvaluatorClient::snip_decryption(CryptoPP::SecByteBlock decryption) {
+EvaluatorClient::snip_decryption(CryptoPP::SecByteBlock decryption)
+{
   CryptoPP::SecByteBlock head(decryption.data(), LABEL_LENGTH);
   return head;
 }

@@ -11,8 +11,9 @@ Syntax to use logger:
   CUSTOM_LOG(lg, debug) << "your message"
 See logger.hpp for more modes besides 'debug'
 */
-namespace {
-src::severity_logger<logging::trivial::severity_level> lg;
+namespace
+{
+  src::severity_logger<logging::trivial::severity_level> lg;
 }
 
 /**
@@ -20,7 +21,8 @@ src::severity_logger<logging::trivial::severity_level> lg;
  */
 GarblerClient::GarblerClient(Circuit circuit,
                              std::shared_ptr<NetworkDriver> network_driver,
-                             std::shared_ptr<CryptoDriver> crypto_driver) {
+                             std::shared_ptr<CryptoDriver> crypto_driver)
+{
   this->circuit = circuit;
   this->network_driver = network_driver;
   this->crypto_driver = crypto_driver;
@@ -32,7 +34,8 @@ GarblerClient::GarblerClient(Circuit circuit,
  * Handle key exchange with evaluator
  */
 std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
-GarblerClient::HandleKeyExchange() {
+GarblerClient::HandleKeyExchange()
+{
   // Generate private/public DH keys
   auto dh_values = this->crypto_driver->DH_initialize();
 
@@ -74,11 +77,12 @@ GarblerClient::HandleKeyExchange() {
  * Final output should be a string containing only "0"s or "1"s
  * Throw errors only for invalid MACs
  */
-std::string GarblerClient::run(std::vector<int> input) {
+std::string GarblerClient::run(std::vector<int> input)
+{
   // Key exchange
   auto keys = this->HandleKeyExchange();
 
-  // TODO: implement me!
+  // Generate a garbled circuit from the given circuit in this->circuit
 }
 
 /**
@@ -86,16 +90,81 @@ std::string GarblerClient::run(std::vector<int> input) {
  * You may find `std::random_shuffle` useful
  */
 std::vector<GarbledGate> GarblerClient::generate_gates(Circuit circuit,
-                                                       GarbledLabels labels) {
-  // TODO: implement me!
+                                                       GarbledLabels labels)
+{
+  std::vector<GarbledGate> garbled_gates;
+  for (int i = 0; i < circuit.num_gate; ++i)
+  {
+    auto current_gate = circuit.gates[i];
+    GarbledGate new_gate;
+
+    // Produce 4 different ciphertexts per AND/XOR gate
+    if (current_gate.type == GateType::T::AND_GATE)
+    {
+      auto ciphertext_1 = encrypt_label(labels.zeros[current_gate.lhs], labels.zeros[current_gate.rhs], labels.zeros[current_gate.output]);
+      auto ciphertext_2 = encrypt_label(labels.zeros[current_gate.lhs], labels.ones[current_gate.rhs], labels.ones[current_gate.output]);
+      auto ciphertext_3 = encrypt_label(labels.ones[current_gate.lhs], labels.zeros[current_gate.rhs], labels.ones[current_gate.output]);
+      auto ciphertext_4 = encrypt_label(labels.ones[current_gate.lhs], labels.ones[current_gate.rhs], labels.zeros[current_gate.output]);
+
+      // Add ciphertext entries to the new gate and randomly shuffle the entries
+      new_gate.entries.push_back(ciphertext_1);
+      new_gate.entries.push_back(ciphertext_2);
+      new_gate.entries.push_back(ciphertext_3);
+      new_gate.entries.push_back(ciphertext_4);
+    }
+    else if (current_gate.type == GateType::T::XOR_GATE)
+    {
+      // Calculate ciphertexts
+      auto ciphertext_1 = encrypt_label(labels.zeros[current_gate.lhs], labels.zeros[current_gate.rhs], labels.zeros[current_gate.output]);
+      auto ciphertext_2 = encrypt_label(labels.zeros[current_gate.lhs], labels.ones[current_gate.rhs], labels.zeros[current_gate.output]);
+      auto ciphertext_3 = encrypt_label(labels.ones[current_gate.lhs], labels.zeros[current_gate.rhs], labels.zeros[current_gate.output]);
+      auto ciphertext_4 = encrypt_label(labels.ones[current_gate.lhs], labels.ones[current_gate.rhs], labels.ones[current_gate.output]);
+
+      // Add ciphertext entries to the new gate and randomly shuffle the entries
+      new_gate.entries.push_back(ciphertext_1);
+      new_gate.entries.push_back(ciphertext_2);
+      new_gate.entries.push_back(ciphertext_3);
+      new_gate.entries.push_back(ciphertext_4);
+    }
+    else
+    {
+      GarbledWire dummy_wire;
+      dummy_wire.value = DUMMY_RHS;
+
+      // Calculate c(0, DUMMY)
+      auto ciphertext_1 = encrypt_label(labels.zeros[current_gate.lhs], dummy_wire, labels.ones[current_gate.output]);
+      auto ciphertext_2 = encrypt_label(labels.ones[current_gate.lhs], dummy_wire, labels.zeros[current_gate.output]);
+
+      new_gate.entries.push_back(ciphertext_1);
+      new_gate.entries.push_back(ciphertext_2);
+    }
+    std::random_shuffle(new_gate.entries.begin(), new_gate.entries.end());
+    garbled_gates.push_back(new_gate);
+  }
+  return garbled_gates;
 }
 
 /**
  * Generate labels for *every* wire in the circuit.
  * To generate an individual label, use `generate_label`.
  */
-GarbledLabels GarblerClient::generate_labels(Circuit circuit) {
-  // TODO: implement me!
+GarbledLabels GarblerClient::generate_labels(Circuit circuit)
+{
+  GarbledLabels garbled_labels;
+  std::vector<GarbledWire> zeros;
+  std::vector<GarbledWire> ones;
+  for (int i = 0; i < circuit.num_wire; ++i)
+  {
+    GarbledWire wire_0;
+    wire_0.value = generate_label();
+    GarbledWire wire_1;
+    wire_1.value = generate_label();
+    zeros.push_back(wire_0);
+    ones.push_back(wire_1);
+  }
+  garbled_labels.zeros = zeros;
+  garbled_labels.ones = ones;
+  return garbled_labels;
 }
 
 /**
@@ -106,14 +175,20 @@ GarbledLabels GarblerClient::generate_labels(Circuit circuit) {
  */
 CryptoPP::SecByteBlock GarblerClient::encrypt_label(GarbledWire lhs,
                                                     GarbledWire rhs,
-                                                    GarbledWire output) {
-  // TODO: implement me!
+                                                    GarbledWire output)
+{
+  auto encryption_1 = this->crypto_driver->hash_inputs(lhs.value, rhs.value);
+  auto encryption_2 = output.value;
+  encryption_2.CleanGrow(LABEL_TAG_LENGTH * 2);
+  xorbuf(encryption_1, encryption_2, LABEL_TAG_LENGTH * 2);
+  return encryption_1;
 }
 
 /**
  * Generate label.
  */
-CryptoPP::SecByteBlock GarblerClient::generate_label() {
+CryptoPP::SecByteBlock GarblerClient::generate_label()
+{
   CryptoPP::SecByteBlock label(LABEL_LENGTH);
   CryptoPP::OS_GenerateRandomBlock(false, label, label.size());
   return label;
@@ -125,10 +200,13 @@ CryptoPP::SecByteBlock GarblerClient::generate_label() {
  */
 std::vector<GarbledWire>
 GarblerClient::get_garbled_wires(GarbledLabels labels, std::vector<int> input,
-                                 int begin) {
+                                 int begin)
+{
   std::vector<GarbledWire> res;
-  for (int i = 0; i < input.size(); i++) {
-    switch (input[i]) {
+  for (int i = 0; i < input.size(); i++)
+  {
+    switch (input[i])
+    {
     case 0:
       res.push_back(labels.zeros[begin + i]);
       break;

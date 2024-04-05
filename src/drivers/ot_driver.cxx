@@ -25,7 +25,8 @@
 OTDriver::OTDriver(
     std::shared_ptr<NetworkDriver> network_driver,
     std::shared_ptr<CryptoDriver> crypto_driver,
-    std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys) {
+    std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys)
+{
   this->network_driver = network_driver;
   this->crypto_driver = crypto_driver;
   this->AES_key = keys.first;
@@ -42,8 +43,47 @@ OTDriver::OTDriver(
  * You may find `byteblock_to_integer` and `integer_to_byteblock` useful
  * Disconnect and throw errors only for invalid MACs
  */
-void OTDriver::OT_send(std::string m0, std::string m1) {
-  // TODO: implement me!
+void OTDriver::OT_send(std::string m0, std::string m1)
+{
+  // Sample a public DH value and send it to the receiver
+  // Outputs of dh_initialize() are a (private key) and g^a (public key)
+  SenderToReceiver_OTPublicValue_Message OT_pub_val_msg;
+  auto [dh_obj, a, g_to_a] = this->crypto_driver->DH_initialize();
+  OT_pub_val_msg.public_value = g_to_a;
+  auto OT_pub_val_msg_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &OT_pub_val_msg);
+  this->network_driver->send(OT_pub_val_msg_bytes);
+
+  // Receive the receiver's public value
+  auto receiver_to_sender_msg_data = this->network_driver->read();
+  ReceiverToSender_OTPublicValue_Message receiver_to_sender_OT_pub_msg;
+  auto [decrypted_receiver_to_sender_data, receiver_to_sender_msg_decrypted] = this->crypto_driver->decrypt_and_verify(this->AES_key, this->HMAC_key, receiver_to_sender_msg_data);
+  if (!receiver_to_sender_msg_decrypted)
+  {
+    throw std::runtime_error("Could not decrypt the receiver to sender OT message");
+  }
+  receiver_to_sender_OT_pub_msg.deserialize(decrypted_receiver_to_sender_data);
+
+  // Encrypt m0 using key created via AES_generate_key and DH_generate_shared_key
+  auto shared_key_m0 = this->crypto_driver->DH_generate_shared_key(dh_obj, a, receiver_to_sender_OT_pub_msg.public_value);
+  auto k0 = this->crypto_driver->AES_generate_key(shared_key_m0);
+  auto [e0, iv0] = this->crypto_driver->AES_encrypt(k0, m0);
+
+  // Encrypt m1 using key created via AES_generate_key and DH_generate_shared_key
+  auto shared_key_m1 = this->crypto_driver->DH_generate_shared_key(dh_obj, a, receiver_to_sender_OT_pub_msg.public_value);
+  auto k1 = this->crypto_driver->AES_generate_key(shared_key_m1);
+  auto [e1, iv1] = this->crypto_driver->AES_encrypt(k1, m1);
+
+  // Send the encrypted values
+  SenderToReceiver_OTEncryptedValues_Message sender_to_receiver_ot_encrypted_vals_msg;
+  sender_to_receiver_ot_encrypted_vals_msg.e0 = e0;
+  sender_to_receiver_ot_encrypted_vals_msg.e1 = e1;
+  sender_to_receiver_ot_encrypted_vals_msg.iv0 = iv0;
+  sender_to_receiver_ot_encrypted_vals_msg.iv1 = iv1;
+  auto OT_encrypted_vals_msg_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &sender_to_receiver_ot_encrypted_vals_msg);
+  this->network_driver->send(OT_encrypted_vals_msg_bytes);
+
+  // Disconnect
+  this->network_driver->disconnect();
 }
 
 /*
@@ -54,6 +94,56 @@ void OTDriver::OT_send(std::string m0, std::string m1) {
  * You may find `byteblock_to_integer` and `integer_to_byteblock` useful
  * Disconnect and throw errors only for invalid MACs
  */
-std::string OTDriver::OT_recv(int choice_bit) {
-  // TODO: implement me!
+std::string OTDriver::OT_recv(int choice_bit)
+{
+  // Read the sender's public value (A = g^a)
+  auto sender_to_receiver_msg_data = this->network_driver->read();
+  SenderToReceiver_OTPublicValue_Message sender_to_receiver_OT_msg;
+  auto [decrypted_sender_to_receiver_data, sender_to_receiver_msg_decrypted] = this->crypto_driver->decrypt_and_verify(this->AES_key, this->HMAC_key, sender_to_receiver_msg_data);
+  if (!sender_to_receiver_msg_decrypted)
+  {
+    throw std::runtime_error("Could not decrypt the receiver to sender OT message");
+  }
+  sender_to_receiver_OT_msg.deserialize(decrypted_sender_to_receiver_data);
+
+  // Respond with our public value that depends on our choice bit
+  ReceiverToSender_OTPublicValue_Message receiver_to_sender_OT_pub_msg;
+  auto [dh_obj, b, g_to_b] = this->crypto_driver->DH_initialize();
+  auto A = byteblock_to_integer(sender_to_receiver_OT_msg.public_value);
+  if (choice_bit == 1)
+  {
+    receiver_to_sender_OT_pub_msg.public_value = integer_to_byteblock(a_times_b_mod_c(A, byteblock_to_integer(g_to_b), DL_P));
+  }
+  else
+  {
+    receiver_to_sender_OT_pub_msg.public_value = g_to_b;
+  }
+  auto receiver_to_sender_OT_pub_val_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &receiver_to_sender_OT_pub_msg);
+  this->network_driver->send(receiver_to_sender_OT_pub_val_bytes);
+
+  // Generate the appropriate key (kc = KDF(A^b))
+  auto shared_key = this->crypto_driver->DH_generate_shared_key(dh_obj, integer_to_byteblock(A), b);
+  auto aes_shared_key = this->crypto_driver->AES_generate_key(shared_key);
+
+  // Receive encrypted values from sender
+  auto sender_to_receiver_encrypted_vals_msg_data = this->network_driver->read();
+  SenderToReceiver_OTEncryptedValues_Message sender_to_receiver_encrypted_vals_msg;
+  auto [decrypted_sender_to_receiver_encrypted_msg_data, sender_to_receiver_encrypted_vals_decrypted] = this->crypto_driver->decrypt_and_verify(this->AES_key, this->HMAC_key, sender_to_receiver_msg_data);
+  if (!sender_to_receiver_encrypted_vals_decrypted)
+  {
+    throw std::runtime_error("Could not decrypt the receiver to sender OT message");
+  }
+  sender_to_receiver_encrypted_vals_msg.deserialize(decrypted_sender_to_receiver_encrypted_msg_data);
+
+  // Decrypt the appropriate ciphertext
+  std::string decryption;
+  if (choice_bit == 1)
+  {
+    decryption = this->crypto_driver->AES_decrypt(aes_shared_key, sender_to_receiver_encrypted_vals_msg.iv1, sender_to_receiver_encrypted_vals_msg.e1);
+  }
+  else
+  {
+    decryption = this->crypto_driver->AES_decrypt(aes_shared_key, sender_to_receiver_encrypted_vals_msg.iv0, sender_to_receiver_encrypted_vals_msg.e0);
+  }
+  return decryption;
 }
