@@ -60,6 +60,7 @@ void OTDriver::OT_send(std::string m0, std::string m1)
   if (!receiver_to_sender_msg_decrypted)
   {
     throw std::runtime_error("Could not decrypt the receiver to sender OT message");
+    this->network_driver->disconnect();
   }
   receiver_to_sender_OT_pub_msg.deserialize(decrypted_receiver_to_sender_data);
 
@@ -102,6 +103,7 @@ std::string OTDriver::OT_recv(int choice_bit)
   auto [decrypted_sender_to_receiver_data, sender_to_receiver_msg_decrypted] = this->crypto_driver->decrypt_and_verify(this->AES_key, this->HMAC_key, sender_to_receiver_msg_data);
   if (!sender_to_receiver_msg_decrypted)
   {
+    this->network_driver->disconnect();
     throw std::runtime_error("Could not decrypt the receiver to sender OT message");
   }
   sender_to_receiver_OT_msg.deserialize(decrypted_sender_to_receiver_data);
@@ -131,6 +133,7 @@ std::string OTDriver::OT_recv(int choice_bit)
   auto [decrypted_sender_to_receiver_encrypted_msg_data, sender_to_receiver_encrypted_vals_decrypted] = this->crypto_driver->decrypt_and_verify(this->AES_key, this->HMAC_key, sender_to_receiver_msg_data);
   if (!sender_to_receiver_encrypted_vals_decrypted)
   {
+    this->network_driver->disconnect();
     throw std::runtime_error("Could not decrypt the receiver to sender OT message");
   }
   sender_to_receiver_encrypted_vals_msg.deserialize(decrypted_sender_to_receiver_encrypted_msg_data);
