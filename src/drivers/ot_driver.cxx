@@ -124,7 +124,7 @@ std::string OTDriver::OT_recv(int choice_bit)
   this->network_driver->send(receiver_to_sender_OT_pub_val_bytes);
 
   // Generate the appropriate key (kc = KDF(A^b))
-  auto shared_key = this->crypto_driver->DH_generate_shared_key(dh_obj, integer_to_byteblock(A), b);
+  auto shared_key = this->crypto_driver->DH_generate_shared_key(dh_obj, b, integer_to_byteblock(A));
   auto aes_shared_key = this->crypto_driver->AES_generate_key(shared_key);
 
   // Receive encrypted values from sender
