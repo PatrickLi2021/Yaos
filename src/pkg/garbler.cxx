@@ -102,9 +102,9 @@ std::vector<GarbledGate> GarblerClient::generate_gates(Circuit circuit,
     if (current_gate.type == GateType::T::AND_GATE)
     {
       auto ciphertext_1 = encrypt_label(labels.zeros[current_gate.lhs], labels.zeros[current_gate.rhs], labels.zeros[current_gate.output]);
-      auto ciphertext_2 = encrypt_label(labels.zeros[current_gate.lhs], labels.ones[current_gate.rhs], labels.ones[current_gate.output]);
-      auto ciphertext_3 = encrypt_label(labels.ones[current_gate.lhs], labels.zeros[current_gate.rhs], labels.ones[current_gate.output]);
-      auto ciphertext_4 = encrypt_label(labels.ones[current_gate.lhs], labels.ones[current_gate.rhs], labels.zeros[current_gate.output]);
+      auto ciphertext_2 = encrypt_label(labels.zeros[current_gate.lhs], labels.ones[current_gate.rhs], labels.zeros[current_gate.output]);
+      auto ciphertext_3 = encrypt_label(labels.ones[current_gate.lhs], labels.zeros[current_gate.rhs], labels.zeros[current_gate.output]);
+      auto ciphertext_4 = encrypt_label(labels.ones[current_gate.lhs], labels.ones[current_gate.rhs], labels.ones[current_gate.output]);
 
       // Add ciphertext entries to the new gate and randomly shuffle the entries
       new_gate.entries.push_back(ciphertext_1);
@@ -116,9 +116,9 @@ std::vector<GarbledGate> GarblerClient::generate_gates(Circuit circuit,
     {
       // Calculate ciphertexts
       auto ciphertext_1 = encrypt_label(labels.zeros[current_gate.lhs], labels.zeros[current_gate.rhs], labels.zeros[current_gate.output]);
-      auto ciphertext_2 = encrypt_label(labels.zeros[current_gate.lhs], labels.ones[current_gate.rhs], labels.zeros[current_gate.output]);
-      auto ciphertext_3 = encrypt_label(labels.ones[current_gate.lhs], labels.zeros[current_gate.rhs], labels.zeros[current_gate.output]);
-      auto ciphertext_4 = encrypt_label(labels.ones[current_gate.lhs], labels.ones[current_gate.rhs], labels.ones[current_gate.output]);
+      auto ciphertext_2 = encrypt_label(labels.zeros[current_gate.lhs], labels.ones[current_gate.rhs], labels.ones[current_gate.output]);
+      auto ciphertext_3 = encrypt_label(labels.ones[current_gate.lhs], labels.zeros[current_gate.rhs], labels.ones[current_gate.output]);
+      auto ciphertext_4 = encrypt_label(labels.ones[current_gate.lhs], labels.ones[current_gate.rhs], labels.zeros[current_gate.output]);
 
       // Add ciphertext entries to the new gate and randomly shuffle the entries
       new_gate.entries.push_back(ciphertext_1);
