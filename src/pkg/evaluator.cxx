@@ -105,7 +105,7 @@ GarbledWire EvaluatorClient::evaluate_gate(GarbledGate gate, GarbledWire lhs,
     xorbuf(hashed_inputs, gate.entries[i], LABEL_TAG_LENGTH * 2);
     if (verify_decryption(hashed_inputs))
     {
-      wire_output.value = hashed_inputs;
+      wire_output.value = snip_decryption(hashed_inputs);
     }
   }
   return wire_output;
