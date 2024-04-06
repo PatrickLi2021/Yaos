@@ -79,8 +79,8 @@ GarblerClient::HandleKeyExchange()
  */
 std::string GarblerClient::run(std::vector<int> input)
 {
-  // Key exchange
-  auto keys = this->HandleKeyExchange();
+  // // Key exchange
+  // auto keys = this->HandleKeyExchange();
 
   // // Generate a garbled circuit from the given circuit in this->circuit
   // GarbledLabels labels = generate_labels(this->circuit);
@@ -121,7 +121,8 @@ std::string GarblerClient::run(std::vector<int> input)
 
   // // Iterate through labels of final wires
   // std::string output_string;
-  // for (int i = 0; i < final_labels.size(); ++i)
+  // // length of zeros, ones, and final_labels vectors is num_wire
+  // for (int i = garbled_circuit.num_wire - ; i < final_labels.size(); ++i)
   // {
   //   if (final_labels[i] == labels.ones[i])
   //   {
