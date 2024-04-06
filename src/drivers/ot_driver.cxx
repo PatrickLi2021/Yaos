@@ -130,7 +130,7 @@ std::string OTDriver::OT_recv(int choice_bit)
   // Receive encrypted values from sender
   auto sender_to_receiver_encrypted_vals_msg_data = this->network_driver->read();
   SenderToReceiver_OTEncryptedValues_Message sender_to_receiver_encrypted_vals_msg;
-  auto [decrypted_sender_to_receiver_encrypted_msg_data, sender_to_receiver_encrypted_vals_decrypted] = this->crypto_driver->decrypt_and_verify(this->AES_key, this->HMAC_key, sender_to_receiver_msg_data);
+  auto [decrypted_sender_to_receiver_encrypted_msg_data, sender_to_receiver_encrypted_vals_decrypted] = this->crypto_driver->decrypt_and_verify(this->AES_key, this->HMAC_key, sender_to_receiver_encrypted_vals_msg_data);
   if (!sender_to_receiver_encrypted_vals_decrypted)
   {
     this->network_driver->disconnect();
