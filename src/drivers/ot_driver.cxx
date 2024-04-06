@@ -70,7 +70,9 @@ void OTDriver::OT_send(std::string m0, std::string m1)
   auto [e0, iv0] = this->crypto_driver->AES_encrypt(k0, m0);
 
   // Encrypt m1 using key created via AES_generate_key and DH_generate_shared_key
-  auto shared_key_m1 = this->crypto_driver->DH_generate_shared_key(dh_obj, a, receiver_to_sender_OT_pub_msg.public_value);
+  auto A_inverse = CryptoPP::EuclideanMultiplicativeInverse(byteblock_to_integer(g_to_a), DL_P);
+  auto b_times_A_inverse = a_times_b_mod_c(byteblock_to_integer(receiver_to_sender_OT_pub_msg.public_value), A_inverse, DL_P);
+  auto shared_key_m1 = this->crypto_driver->DH_generate_shared_key(dh_obj, a, integer_to_byteblock(b_times_A_inverse));
   auto k1 = this->crypto_driver->AES_generate_key(shared_key_m1);
   auto [e1, iv1] = this->crypto_driver->AES_encrypt(k1, m1);
 
