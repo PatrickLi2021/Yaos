@@ -83,6 +83,7 @@ std::string GarblerClient::run(std::vector<int> input)
   auto keys = this->HandleKeyExchange();
 
   // Generate a garbled circuit from the given circuit in this->circuit
+  // Circuit garbled_circuit = generate_gates(this->circuit, this->circuit)
 }
 
 /**
