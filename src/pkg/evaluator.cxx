@@ -98,12 +98,12 @@ GarbledWire EvaluatorClient::evaluate_gate(GarbledGate gate, GarbledWire lhs,
 {
   GarbledWire wire_output;
   // First, calculate SHA(LHS, RHS)
-  auto hashed_inputs = this->crypto_driver->hash_inputs(lhs.value, rhs.value);
+  auto original_hashed_inputs = this->crypto_driver->hash_inputs(lhs.value, rhs.value);
   // XOR the hashed inputs with each of the gate's entries (which represent the outputs)
   for (int i = 0; i < gate.entries.size(); ++i)
   {
-    CryptoPP::SecByteBlock original_hashed_inputs = hashed_inputs;
-    xorbuf(original_hashed_inputs, gate.entries[i], original_hashed_inputs.size());
+    CryptoPP::SecByteBlock hashed_inputs = original_hashed_inputs;
+    xorbuf(hashed_inputs, gate.entries[i], original_hashed_inputs.size());
     if (verify_decryption(hashed_inputs))
     {
       wire_output.value = snip_decryption(hashed_inputs);
