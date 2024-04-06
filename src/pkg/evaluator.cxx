@@ -80,6 +80,10 @@ std::string EvaluatorClient::run(std::vector<int> input)
   // Key exchange
   auto keys = this->HandleKeyExchange();
 
+  // NOT gate only has 1 input, the other gates (XOR and AND) have 2 inputs (use if statement to separate them)
+  // Iterate through the number of gates in the circuit
+  // Call evaluate_gate
+
   // TODO: implement me!
 }
 
@@ -92,6 +96,19 @@ std::string EvaluatorClient::run(std::vector<int> input)
 GarbledWire EvaluatorClient::evaluate_gate(GarbledGate gate, GarbledWire lhs,
                                            GarbledWire rhs)
 {
+  GarbledWire wire_output;
+  // First, calculate SHA(LHS, RHS)
+  auto hashed_inputs = this->crypto_driver->hash_inputs(lhs.value, rhs.value);
+  // XOR the hashed inputs with each of the gate's entries (which represent the outputs)
+  for (int i = 0; i < gate.entries.size(); ++i)
+  {
+    xorbuf(hashed_inputs, gate.entries[i], LABEL_TAG_LENGTH * 2);
+    if (verify_decryption(hashed_inputs))
+    {
+      wire_output.value = hashed_inputs
+    }
+  }
+  return wire_output
 }
 
 /**
