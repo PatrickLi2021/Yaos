@@ -79,8 +79,8 @@ GarblerClient::HandleKeyExchange()
  */
 std::string GarblerClient::run(std::vector<int> input)
 {
-  // // Key exchange
-  // auto keys = this->HandleKeyExchange();
+  // Key exchange
+  auto keys = this->HandleKeyExchange();
 
   // // Generate a garbled circuit from the given circuit in this->circuit
   // GarbledLabels labels = generate_labels(this->circuit);
