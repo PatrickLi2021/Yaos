@@ -89,26 +89,33 @@ std::string GarblerClient::run(std::vector<int> input)
   auto output_length = this->circuit.output_length;
   auto garbler_input_length = this->circuit.garbler_input_length;
   auto evaluator_input_length = this->circuit.evaluator_input_length;
+  this->cli_driver->print_left("just generated a garbled circuit");
 
   // Send the garbled circuit to the evaluator
   GarblerToEvaluator_GarbledTables_Message garbler_to_eval_circuit_msg;
   garbler_to_eval_circuit_msg.garbled_tables = generated_gates;
   auto garbler_to_eval_circuit_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &garbler_to_eval_circuit_msg);
   this->network_driver->send(garbler_to_eval_circuit_msg_bytes);
+  this->cli_driver->print_left("just sent the garbled circuit to the evaluator");
 
   // Send the garbler's input labels to the evaluator
   GarblerToEvaluator_GarblerInputs_Message garbler_to_eval_input_labels_msg;
   garbler_to_eval_input_labels_msg.garbler_inputs = get_garbled_wires(labels, input, 0);
   auto garbler_to_eval_input_labels_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &garbler_to_eval_input_labels_msg);
   this->network_driver->send(garbler_to_eval_input_labels_msg_bytes);
+  this->cli_driver->print_left("just sent the garbler's input labels to the evaluator");
 
   // Send evaluator's input labels using OT (call OT_send, once for each wire)
   for (int i = garbler_input_length; i < garbler_input_length + evaluator_input_length; i++)
   {
+    this->cli_driver->print_left("before labelling");
     auto m0 = labels.zeros[i];
     auto m1 = labels.ones[i];
+    this->cli_driver->print_left("before OT send");
     this->ot_driver->OT_send(byteblock_to_string(m0.value), byteblock_to_string(m1.value));
+    this->cli_driver->print_left("After OT send");
   }
+  this->cli_driver->print_left("just sent the evaluator's input labels using OT");
 
   // Receive final labels, and use this to get the final output
   auto eval_to_garbler_final_labels_msg_data = this->network_driver->read();
@@ -120,6 +127,7 @@ std::string GarblerClient::run(std::vector<int> input)
     throw std::runtime_error("Could not decrypt the evaluator's final labels message");
   }
   eval_to_garbler_final_labels_msg.deserialize(decrypted_eval_to_garbler_final_labels_msg_data);
+  this->cli_driver->print_left("just received the final labels");
 
   auto final_labels = eval_to_garbler_final_labels_msg.final_labels;
   std::string output_string;
@@ -134,6 +142,7 @@ std::string GarblerClient::run(std::vector<int> input)
       output_string += "0";
     }
   }
+  this->cli_driver->print_left("just computed the final output");
   return output_string;
 }
 
