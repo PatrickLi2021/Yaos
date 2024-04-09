@@ -104,16 +104,17 @@ std::string EvaluatorClient::run(std::vector<int> input)
   garbler_to_eval_garbler_inputs_msg.deserialize(decrypted_garbler_to_eval_garbler_inputs_msg_data);
 
   // Reconstruct the garbled circuit and input the garbler's inputs
-  std::vector<GarbledWire> list_of_wires(0);
+  std::vector<GarbledWire> list_of_wires;
   list_of_wires.resize(this->circuit.num_wire);
   std::vector<GarbledGate> garbled_gates = garbled_circuit_msg.garbled_tables;
 
+  // Populate list of wires with garbler's inputs
   for (int i = 0; i < this->circuit.garbler_input_length; ++i)
   {
     list_of_wires[i] = garbler_to_eval_garbler_inputs_msg.garbler_inputs[i];
   }
 
-  // Retrieve evaluator's input using OT
+  // Retrieve evaluator's input using OT and populate list of wires with evaluator's input
   for (int i = 0; i < this->circuit.evaluator_input_length; ++i)
   {
     GarbledWire garbled_wire;
@@ -139,7 +140,7 @@ std::string EvaluatorClient::run(std::vector<int> input)
       dummy_wire.value = DUMMY_RHS;
       output_wire = evaluate_gate(current_gate, lhs_wire, dummy_wire);
     }
-    list_of_wires[this->circuit.num_wire - this->circuit.output_length + i] = output_wire;
+    list_of_wires[this->circuit.gates[i].output] = output_wire;
   }
 
   // Send final labels to the garbler
@@ -159,9 +160,6 @@ std::string EvaluatorClient::run(std::vector<int> input)
   }
   garbler_to_eval_final_output_msg.deserialize(decrypted_garbler_to_eval_garbler_final_output_msg_data);
   return garbler_to_eval_final_output_msg.final_output;
-
-  // NOT gate only has 1 input, the other gates (XOR and AND) have 2 inputs (use if statement to separate them)
-  // Iterate through the number of gates in the circuit
 }
 
 /**
