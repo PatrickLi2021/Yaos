@@ -143,6 +143,8 @@ std::string GarblerClient::run(std::vector<int> input)
     }
   }
   this->cli_driver->print_left("just computed the final output");
+  // Send the final output
+
   return output_string;
 }
 
