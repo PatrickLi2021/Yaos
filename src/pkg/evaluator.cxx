@@ -130,6 +130,7 @@ std::string EvaluatorClient::run(std::vector<int> input)
   this->cli_driver->print_left("just populated the list of wires with evaluator's inputs");
 
   // Evaluate gates in order. Iterate through all gates and just evaluate them. We get the LHS and RHS from the original circuit.
+  std::vector<GarbledWire> final_wires;
   for (int i = 0; i < garbled_gates.size(); i++)
   {
     GarbledWire output_wire;
@@ -147,12 +148,13 @@ std::string EvaluatorClient::run(std::vector<int> input)
       output_wire = evaluate_gate(current_gate, lhs_wire, dummy_wire);
     }
     list_of_wires[this->circuit.gates[i].output] = output_wire;
+    final_wires.push_back(output_wire);
   }
   this->cli_driver->print_left("just finished evaluating all the gates");
 
   // Send final labels to the garbler
   EvaluatorToGarbler_FinalLabels_Message eval_to_garbler_final_labels_msg;
-  eval_to_garbler_final_labels_msg.final_labels = list_of_wires;
+  eval_to_garbler_final_labels_msg.final_labels = final_wires;
   auto eval_to_garbler_final_labels_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &eval_to_garbler_final_labels_msg);
   this->network_driver->send(eval_to_garbler_final_labels_msg_bytes);
   this->cli_driver->print_left("just finihsed sending the final labels to the garbler");
