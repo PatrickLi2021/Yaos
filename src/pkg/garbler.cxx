@@ -103,7 +103,7 @@ std::string GarblerClient::run(std::vector<int> input)
   this->network_driver->send(garbler_to_eval_input_labels_msg_bytes);
 
   // Send evaluator's input labels using OT (call OT_send, once for each wire)
-  for (int i = garbler_input_length; i < garbler_input_length + evaluator_input_length; ++i)
+  for (int i = garbler_input_length; i < garbler_input_length + evaluator_input_length; i++)
   {
     auto m0 = labels.zeros[i];
     auto m1 = labels.ones[i];
@@ -122,13 +122,10 @@ std::string GarblerClient::run(std::vector<int> input)
   eval_to_garbler_final_labels_msg.deserialize(decrypted_eval_to_garbler_final_labels_msg_data);
 
   auto final_labels = eval_to_garbler_final_labels_msg.final_labels;
-
-  // Iterate through labels of final wires
   std::string output_string;
-  // length of zeros, ones, and final_labels vectors is num_wire
-  for (int i = num_wires - output_length; i < final_labels.size(); ++i)
+  for (int i = 0; i < output_length; i++)
   {
-    if (final_labels[i].value == labels.ones[i].value)
+    if (final_labels[i].value == labels.ones[i + num_wires - output_length].value)
     {
       output_string += "1";
     }
@@ -148,7 +145,7 @@ std::vector<GarbledGate> GarblerClient::generate_gates(Circuit circuit,
                                                        GarbledLabels labels)
 {
   std::vector<GarbledGate> garbled_gates;
-  for (int i = 0; i < circuit.num_gate; ++i)
+  for (int i = 0; i < circuit.num_gate; i++)
   {
     auto current_gate = circuit.gates[i];
     GarbledGate new_gate;

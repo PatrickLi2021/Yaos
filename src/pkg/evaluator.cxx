@@ -109,13 +109,13 @@ std::string EvaluatorClient::run(std::vector<int> input)
   std::vector<GarbledGate> garbled_gates = garbled_circuit_msg.garbled_tables;
 
   // Populate list of wires with garbler's inputs
-  for (int i = 0; i < this->circuit.garbler_input_length; ++i)
+  for (int i = 0; i < this->circuit.garbler_input_length; i++)
   {
     list_of_wires[i] = garbler_to_eval_garbler_inputs_msg.garbler_inputs[i];
   }
 
   // Retrieve evaluator's input using OT and populate list of wires with evaluator's input
-  for (int i = 0; i < this->circuit.evaluator_input_length; ++i)
+  for (int i = 0; i < this->circuit.evaluator_input_length; i++)
   {
     GarbledWire garbled_wire;
     auto evaluator_input = string_to_byteblock(this->ot_driver->OT_recv(input[i]));
@@ -124,13 +124,13 @@ std::string EvaluatorClient::run(std::vector<int> input)
   }
 
   // Evaluate gates in order. Iterate through all gates and just evaluate them. We get the LHS and RHS from the original circuit.
-  for (int i = 0; i < garbled_gates.size(); ++i)
+  for (int i = 0; i < garbled_gates.size(); i++)
   {
     GarbledWire output_wire;
     auto current_gate = garbled_circuit_msg.garbled_tables[i];
     auto lhs_wire = list_of_wires[this->circuit.gates[i].lhs];
     auto rhs_wire = list_of_wires[this->circuit.gates[i].rhs];
-    if (this->circuit.gates[i].type == GateType::T::AND_GATE || this->circuit.gates[i].type == GateType::T::AND_GATE)
+    if (this->circuit.gates[i].type == GateType::AND_GATE || this->circuit.gates[i].type == GateType::XOR_GATE)
     {
       output_wire = evaluate_gate(current_gate, lhs_wire, rhs_wire);
     }
@@ -175,7 +175,7 @@ GarbledWire EvaluatorClient::evaluate_gate(GarbledGate gate, GarbledWire lhs,
   // First, calculate SHA(LHS, RHS)
   auto original_hashed_inputs = this->crypto_driver->hash_inputs(lhs.value, rhs.value);
   // XOR the hashed inputs with each of the gate's entries (which represent the outputs)
-  for (int i = 0; i < gate.entries.size(); ++i)
+  for (int i = 0; i < gate.entries.size(); i++)
   {
     CryptoPP::SecByteBlock hashed_inputs = original_hashed_inputs;
     xorbuf(hashed_inputs, gate.entries[i], original_hashed_inputs.size());
