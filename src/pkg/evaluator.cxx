@@ -72,19 +72,90 @@ EvaluatorClient::HandleKeyExchange()
  * 6) Receive final output
  * `input` is the evaluator's input for each gate
  * You may find `resize` useful before running OT
- * You may also find `string_to_byteblock` useful for converting OT output to
- * wires Disconnect and throw errors only for invalid MACs
+ * You may also find `string_to_byteblock` useful for converting OT output to wires 
+ * Disconnect and throw errors only for invalid MACs
  */
 std::string EvaluatorClient::run(std::vector<int> input)
 {
   // Key exchange
   auto keys = this->HandleKeyExchange();
 
+  // Receive the garbled circuit
+  auto garbler_to_eval_circuit_msg_data = this->network_driver->read();
+  GarblerToEvaluator_GarbledTables_Message garbled_circuit_msg;
+  ReceiverToSender_OTPublicValue_Message receiver_to_sender_OT_pub_msg;
+  auto [decrypted_garbler_to_eval_circuit_msg_data, garbler_to_eval_circuit_msg_decrypted] = this->crypto_driver->decrypt_and_verify(keys.first, keys.second, garbler_to_eval_circuit_msg_data);
+  if (!garbler_to_eval_circuit_msg_decrypted)
+  {
+    this->network_driver->disconnect();
+    throw std::runtime_error("Could not decrypt the garbler to evaluator circuit message");
+  }
+  garbled_circuit_msg.deserialize(decrypted_garbler_to_eval_circuit_msg_data);
+
+  // Receive the garbled inputs
+  auto garbler_to_eval_garbler_inputs_data = this->network_driver->read();
+  GarblerToEvaluator_GarblerInputs_Message garbler_to_eval_garbler_inputs_msg;
+  auto [decrypted_garbler_to_eval_garbler_inputs_msg_data, garbler_to_eval_garbler_inputs_msg_decrypted] = this->crypto_driver->decrypt_and_verify(keys.first, keys.second, garbler_to_eval_garbler_inputs_data);
+  if (!garbler_to_eval_garbler_inputs_msg_decrypted)
+  {
+    this->network_driver->disconnect();
+    throw std::runtime_error("Could not decrypt the garbler to evaluator inputs message");
+  }
+  garbler_to_eval_garbler_inputs_msg.deserialize(decrypted_garbler_to_eval_garbler_inputs_msg_data);
+
+  // Reconstruct the garbled circuit and input the garbler's inputs
+  std::vector<GarbledWire> garbler_input_wires = garbler_to_eval_garbler_inputs_msg.garbler_inputs;
+  std::vector<GarbledGate> garbled_gates = garbled_circuit_msg.garbled_tables;
+
+  // Retrieve evaluator's input using OT
+  std::vector<GarbledWire> zero_wires;
+  std::vector<GarbledWire> one_wires;
+  for (int i = 0; i < input.size(); ++i)
+  {
+    GarbledWire garbled_wire;
+    auto input_label = string_to_byteblock(this->ot_driver->OT_recv(input[i]));
+    garbled_wire.value = input_label;
+    if (input[i] == 0)
+    {
+      zero_wires.push_back(garbled_wire);
+    }
+    else
+    {
+      one_wires.push_back(garbled_wire);
+    }
+  }
+
+  // Evaluate gates in order
+  std::vector<GarbledWire> final_labels;
+  for (int i = 0; i < garbled_circuit_msg.garbled_tables.size(); ++i)
+  {
+    auto current_gate = garbled_circuit_msg.garbled_tables[i];
+    auto lhs_wire = zero_wires[i];
+    auto rhs_wire = one_wires[i];
+    GarbledWire output_wire = evaluate_gate(current_gate, lhs_wire, rhs_wire);
+    final_labels.push_back(output_wire);
+  }
+
+  // Send final labels to the garbler
+  EvaluatorToGarbler_FinalLabels_Message eval_to_garbler_final_labels_msg;
+  eval_to_garbler_final_labels_msg.final_labels = final_labels;
+  auto eval_to_garbler_final_labels_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &eval_to_garbler_final_labels_msg);
+  this->network_driver->send(eval_to_garbler_final_labels_msg_bytes);
+
+  // Receive final output
+  auto garbler_to_eval_final_output_msg_data = this->network_driver->read();
+  GarblerToEvaluator_FinalOutput_Message garbler_to_eval_final_output_msg;
+  auto [decrypted_garbler_to_eval_garbler_final_output_msg_data, garbler_to_eval_garbler_final_output_msg_decrypted] = this->crypto_driver->decrypt_and_verify(keys.first, keys.second, garbler_to_eval_final_output_msg_data);
+  if (!garbler_to_eval_garbler_final_output_msg_decrypted)
+  {
+    this->network_driver->disconnect();
+    throw std::runtime_error("Could not decrypt the garbler to evaluator final output message");
+  }
+  garbler_to_eval_final_output_msg.deserialize(decrypted_garbler_to_eval_garbler_final_output_msg_data);
+  return garbler_to_eval_final_output_msg.final_output;
+
   // NOT gate only has 1 input, the other gates (XOR and AND) have 2 inputs (use if statement to separate them)
   // Iterate through the number of gates in the circuit
-  // Call evaluate_gate
-
-  // TODO: implement me!
 }
 
 /**

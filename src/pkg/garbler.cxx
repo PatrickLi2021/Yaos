@@ -82,58 +82,62 @@ std::string GarblerClient::run(std::vector<int> input)
   // Key exchange
   auto keys = this->HandleKeyExchange();
 
-  // // Generate a garbled circuit from the given circuit in this->circuit
-  // GarbledLabels labels = generate_labels(this->circuit);
-  // Circuit garbled_circuit = generate_gates(this->circuit, labels);
+  // Generate a garbled circuit from the given circuit in this->circuit
+  GarbledLabels labels = generate_labels(this->circuit);
+  auto generated_gates = generate_gates(this->circuit, labels);
+  auto num_wires = this->circuit.num_wire;
+  auto output_length = this->circuit.output_length;
+  auto garbler_input_length = this->circuit.garbler_input_length;
+  auto evaluator_input_length = this->circuit.evaluator_input_length;
 
-  // // Send the garbled circuit to the evaluator
-  // GarblerToEvaluator_GarbledTables_Message garbler_to_eval_circuit_msg;
-  // garbler_to_eval_circuit_msg.garbled_tables = garbled_circuit.gates;
-  // auto garbler_to_eval_circuit_msg_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &garbler_to_eval_circuit_msg);
-  // this->network_driver->send(garbler_to_eval_circuit_msg_bytes);
+  // Send the garbled circuit to the evaluator
+  GarblerToEvaluator_GarbledTables_Message garbler_to_eval_circuit_msg;
+  garbler_to_eval_circuit_msg.garbled_tables = generated_gates;
+  auto garbler_to_eval_circuit_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &garbler_to_eval_circuit_msg);
+  this->network_driver->send(garbler_to_eval_circuit_msg_bytes);
 
-  // // Send the garbler's input labels to the evaluator
-  // GarblerToEvaluator_GarblerInputs_Message garbler_to_eval_input_labels_msg;
-  // garbler_input_labels_msg.garbler_inputs = get_garbled_wires(labels, input, 0);
-  // auto garbler_to_eval_input_labels_msg_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &garbler_to_eval_input_labels_msg);
-  // this->network_driver->send(garbler_to_eval_input_labels_msg_bytes);
+  // Send the garbler's input labels to the evaluator
+  GarblerToEvaluator_GarblerInputs_Message garbler_to_eval_input_labels_msg;
+  garbler_to_eval_input_labels_msg.garbler_inputs = get_garbled_wires(labels, input, 0);
+  auto garbler_to_eval_input_labels_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &garbler_to_eval_input_labels_msg);
+  this->network_driver->send(garbler_to_eval_input_labels_msg_bytes);
 
-  // // Send evaluator's input labels using OT (call OT_send, once for each wire)
-  // for (int i = garbled_circuit.garbled_input_length; i < garbled_circuit.garbled_input_length + garbled_circuit.evaluator_input_length; ++i)
-  // {
-  //   auto m0 = labels.zeros[i];
-  //   auto m1 = labels.ones[i];
-  //   this->ot_driver->OT_send(m0, m1);
-  // }
+  // Send evaluator's input labels using OT (call OT_send, once for each wire)
+  for (int i = garbler_input_length; i < garbler_input_length + evaluator_input_length; ++i)
+  {
+    auto m0 = labels.zeros[i];
+    auto m1 = labels.ones[i];
+    this->ot_driver->OT_send(byteblock_to_string(m0.value), byteblock_to_string(m1.value));
+  }
 
-  // // Receive final labels, and use this to get the final output
-  // auto eval_to_garbler_final_labels_msg_data = this->network_driver->read();
-  // EvaluatorToGarbler_FinalLabels_Message eval_to_garbler_final_labels_msg;
-  // auto [decrypted_eval_to_garbler_final_labels_msg_data, eval_to_garbler_final_labels_msg_decrypted] = this->crypto_driver->decrypt_and_verify(this->AES_key, this->HMAC_key, eval_to_garbler_final_labels_msg);
-  // if (!eval_to_garbler_final_labels_msg_decrypted)
-  // {
-  //   this->network_driver->disconnect();
-  //   throw std::runtime_error("Could not decrypt the evaluator's final labels message");
-  // }
-  // eval_to_garbler_final_labels_msg.deserialize(decrypted_eval_to_garbler_final_labels_msg_data);
+  // Receive final labels, and use this to get the final output
+  auto eval_to_garbler_final_labels_msg_data = this->network_driver->read();
+  EvaluatorToGarbler_FinalLabels_Message eval_to_garbler_final_labels_msg;
+  auto [decrypted_eval_to_garbler_final_labels_msg_data, eval_to_garbler_final_labels_msg_decrypted] = this->crypto_driver->decrypt_and_verify(keys.first, keys.second, eval_to_garbler_final_labels_msg_data);
+  if (!eval_to_garbler_final_labels_msg_decrypted)
+  {
+    this->network_driver->disconnect();
+    throw std::runtime_error("Could not decrypt the evaluator's final labels message");
+  }
+  eval_to_garbler_final_labels_msg.deserialize(decrypted_eval_to_garbler_final_labels_msg_data);
 
-  // auto final_labels = eval_to_garbler_final_labels_msg.final_labels;
+  auto final_labels = eval_to_garbler_final_labels_msg.final_labels;
 
-  // // Iterate through labels of final wires
-  // std::string output_string;
-  // // length of zeros, ones, and final_labels vectors is num_wire
-  // for (int i = garbled_circuit.num_wire - ; i < final_labels.size(); ++i)
-  // {
-  //   if (final_labels[i] == labels.ones[i])
-  //   {
-  //     output_string += "1";
-  //   }
-  //   else
-  //   {
-  //     output_string += "0";
-  //   }
-  // }
-  // return output_string;
+  // Iterate through labels of final wires
+  std::string output_string;
+  // length of zeros, ones, and final_labels vectors is num_wire
+  for (int i = num_wires - output_length; i < final_labels.size(); ++i)
+  {
+    if (final_labels[i].value == labels.ones[i].value)
+    {
+      output_string += "1";
+    }
+    else
+    {
+      output_string += "0";
+    }
+  }
+  return output_string;
 }
 
 /**
