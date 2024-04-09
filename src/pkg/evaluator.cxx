@@ -104,41 +104,47 @@ std::string EvaluatorClient::run(std::vector<int> input)
   garbler_to_eval_garbler_inputs_msg.deserialize(decrypted_garbler_to_eval_garbler_inputs_msg_data);
 
   // Reconstruct the garbled circuit and input the garbler's inputs
-  std::vector<GarbledWire> garbler_input_wires = garbler_to_eval_garbler_inputs_msg.garbler_inputs;
+  std::vector<GarbledWire> list_of_wires(0);
+  list_of_wires.resize(this->circuit.num_wire);
   std::vector<GarbledGate> garbled_gates = garbled_circuit_msg.garbled_tables;
 
+  for (int i = 0; i < this->circuit.garbler_input_length; ++i)
+  {
+    list_of_wires[i] = garbler_to_eval_garbler_inputs_msg.garbler_inputs[i];
+  }
+
   // Retrieve evaluator's input using OT
-  std::vector<GarbledWire> zero_wires;
-  std::vector<GarbledWire> one_wires;
-  for (int i = 0; i < input.size(); ++i)
+  for (int i = 0; i < this->circuit.evaluator_input_length; ++i)
   {
     GarbledWire garbled_wire;
-    auto input_label = string_to_byteblock(this->ot_driver->OT_recv(input[i]));
-    garbled_wire.value = input_label;
-    if (input[i] == 0)
+    auto evaluator_input = string_to_byteblock(this->ot_driver->OT_recv(input[i]));
+    garbled_wire.value = evaluator_input;
+    list_of_wires[i + this->circuit.garbler_input_length] = garbled_wire;
+  }
+
+  // Evaluate gates in order. Iterate through all gates and just evaluate them. We get the LHS and RHS from the original circuit.
+  for (int i = 0; i < garbled_gates.size(); ++i)
+  {
+    GarbledWire output_wire;
+    auto current_gate = garbled_circuit_msg.garbled_tables[i];
+    auto lhs_wire = list_of_wires[this->circuit.gates[i].lhs];
+    auto rhs_wire = list_of_wires[this->circuit.gates[i].rhs];
+    if (this->circuit.gates[i].type == GateType::T::AND_GATE || this->circuit.gates[i].type == GateType::T::AND_GATE)
     {
-      zero_wires.push_back(garbled_wire);
+      output_wire = evaluate_gate(current_gate, lhs_wire, rhs_wire);
     }
     else
     {
-      one_wires.push_back(garbled_wire);
+      GarbledWire dummy_wire;
+      dummy_wire.value = DUMMY_RHS;
+      output_wire = evaluate_gate(current_gate, lhs_wire, dummy_wire);
     }
-  }
-
-  // Evaluate gates in order
-  std::vector<GarbledWire> final_labels;
-  for (int i = 0; i < garbled_circuit_msg.garbled_tables.size(); ++i)
-  {
-    auto current_gate = garbled_circuit_msg.garbled_tables[i];
-    auto lhs_wire = zero_wires[i];
-    auto rhs_wire = one_wires[i];
-    GarbledWire output_wire = evaluate_gate(current_gate, lhs_wire, rhs_wire);
-    final_labels.push_back(output_wire);
+    list_of_wires[this->circuit.num_wire - this->circuit.output_length + i] = output_wire;
   }
 
   // Send final labels to the garbler
   EvaluatorToGarbler_FinalLabels_Message eval_to_garbler_final_labels_msg;
-  eval_to_garbler_final_labels_msg.final_labels = final_labels;
+  eval_to_garbler_final_labels_msg.final_labels = list_of_wires;
   auto eval_to_garbler_final_labels_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &eval_to_garbler_final_labels_msg);
   this->network_driver->send(eval_to_garbler_final_labels_msg_bytes);
 
