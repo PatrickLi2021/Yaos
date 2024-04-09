@@ -157,7 +157,7 @@ std::string EvaluatorClient::run(std::vector<int> input)
   eval_to_garbler_final_labels_msg.final_labels = final_wires;
   auto eval_to_garbler_final_labels_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &eval_to_garbler_final_labels_msg);
   this->network_driver->send(eval_to_garbler_final_labels_msg_bytes);
-  this->cli_driver->print_left("just finihsed sending the final labels to the garbler");
+  this->cli_driver->print_left("just finished sending the final labels to the garbler");
 
   // Receive final output
   auto garbler_to_eval_final_output_msg_data = this->network_driver->read();
