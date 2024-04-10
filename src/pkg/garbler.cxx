@@ -106,11 +106,11 @@ std::string GarblerClient::run(std::vector<int> input)
   this->cli_driver->print_left("just sent the garbler's input labels to the evaluator");
 
   // Send evaluator's input labels using OT (call OT_send, once for each wire)
-  for (int i = garbler_input_length; i < garbler_input_length + evaluator_input_length; i++)
+  for (int i = 0; i < this->circuit.evaluator_input_length; i++)
   {
     this->cli_driver->print_left("before labelling");
-    auto m0 = labels.zeros[i];
-    auto m1 = labels.ones[i];
+    auto m0 = labels.zeros[i + this->circuit.garbler_input_length];
+    auto m1 = labels.ones[i + this->circuit.garbler_input_length];
     this->cli_driver->print_left("before OT send");
     this->ot_driver->OT_send(byteblock_to_string(m0.value), byteblock_to_string(m1.value));
     this->cli_driver->print_left("After OT send");
@@ -135,11 +135,11 @@ std::string GarblerClient::run(std::vector<int> input)
   {
     if (final_labels[i].value == labels.ones[num_wires - output_length + i].value)
     {
-      output_string += "1";
+      output_string = output_string + "1";
     }
     else
     {
-      output_string += "0";
+      output_string = output_string + "0";
     }
   }
   this->cli_driver->print_left("just computed the final output");
