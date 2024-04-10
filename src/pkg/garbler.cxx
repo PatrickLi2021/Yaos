@@ -130,10 +130,10 @@ std::string GarblerClient::run(std::vector<int> input)
   this->cli_driver->print_left("just received the final labels");
 
   auto final_labels = eval_to_garbler_final_labels_msg.final_labels;
-  std::string output_string;
-  for (int i = 0; i < output_length; i++)
+  std::string output_string = "";
+  for (int i = 0; i < final_labels.size(); i++)
   {
-    if (final_labels[i].value == labels.ones[i + num_wires - output_length].value)
+    if (final_labels[i].value == labels.ones[num_wires - output_length + i].value)
     {
       output_string += "1";
     }
@@ -144,6 +144,10 @@ std::string GarblerClient::run(std::vector<int> input)
   }
   this->cli_driver->print_left("just computed the final output");
   // Send the final output
+  GarblerToEvaluator_FinalOutput_Message garbler_to_eval_final_output_msg;
+  garbler_to_eval_final_output_msg.final_output = output_string;
+  auto garbler_to_eval_final_output_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &garbler_to_eval_final_output_msg);
+  this->network_driver->send(garbler_to_eval_final_output_msg_bytes);
 
   return output_string;
 }
