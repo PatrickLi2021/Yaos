@@ -90,7 +90,6 @@ std::string EvaluatorClient::run(std::vector<int> input)
     throw std::runtime_error("Could not decrypt the garbler to evaluator circuit message");
   }
   garbled_circuit_msg.deserialize(decrypted_garbler_to_eval_circuit_msg_data);
-  this->cli_driver->print_left("just received garbled circuit");
 
   // Receive the garbled inputs
   auto garbler_to_eval_garbler_inputs_data = this->network_driver->read();
@@ -102,32 +101,26 @@ std::string EvaluatorClient::run(std::vector<int> input)
     throw std::runtime_error("Could not decrypt the garbler to evaluator inputs message");
   }
   garbler_to_eval_garbler_inputs_msg.deserialize(decrypted_garbler_to_eval_garbler_inputs_msg_data);
-  this->cli_driver->print_left("just received garbled inputs");
 
   // Reconstruct the garbled circuit and input the garbler's inputs
   std::vector<GarbledWire> list_of_wires;
   list_of_wires.resize(this->circuit.num_wire);
   std::vector<GarbledGate> garbled_gates = garbled_circuit_msg.garbled_tables;
-  this->cli_driver->print_left("just reconstructed the garbled circuit");
 
   // Populate list of wires with garbler's inputs
   for (int i = 0; i < this->circuit.garbler_input_length; i++)
   {
     list_of_wires[i] = garbler_to_eval_garbler_inputs_msg.garbler_inputs[i];
   }
-  this->cli_driver->print_left("just inputted the garbler's inputs");
 
   // Retrieve evaluator's input using OT and populate list of wires with evaluator's input
   for (int i = 0; i < this->circuit.evaluator_input_length; i++)
   {
-    this->cli_driver->print_left("before calling OT receive");
     GarbledWire garbled_wire;
     auto evaluator_input = string_to_byteblock(this->ot_driver->OT_recv(input[i]));
     garbled_wire.value = evaluator_input;
     list_of_wires[i + this->circuit.garbler_input_length] = garbled_wire;
-    this->cli_driver->print_left("after calling OT receive");
   }
-  this->cli_driver->print_left("just populated the list of wires with evaluator's inputs");
 
   // Evaluate gates in order. Iterate through all gates and just evaluate them. We get the LHS and RHS from the original circuit.
   for (int i = 0; i < garbled_gates.size(); i++)
@@ -148,7 +141,6 @@ std::string EvaluatorClient::run(std::vector<int> input)
     }
     list_of_wires[this->circuit.gates[i].output] = output_wire;
   }
-  this->cli_driver->print_left("just finished evaluating all the gates");
   std::vector<GarbledWire> final_wires;
   for (int i = 0; i < this->circuit.output_length; i++)
   {
@@ -160,7 +152,6 @@ std::string EvaluatorClient::run(std::vector<int> input)
   eval_to_garbler_final_labels_msg.final_labels = final_wires;
   auto eval_to_garbler_final_labels_msg_bytes = this->crypto_driver->encrypt_and_tag(keys.first, keys.second, &eval_to_garbler_final_labels_msg);
   this->network_driver->send(eval_to_garbler_final_labels_msg_bytes);
-  this->cli_driver->print_left("just finished sending the final labels to the garbler");
 
   // Receive final output
   auto garbler_to_eval_final_output_msg_data = this->network_driver->read();
@@ -172,7 +163,6 @@ std::string EvaluatorClient::run(std::vector<int> input)
     throw std::runtime_error("Could not decrypt the garbler to evaluator final output message");
   }
   garbler_to_eval_final_output_msg.deserialize(decrypted_garbler_to_eval_garbler_final_output_msg_data);
-  this->cli_driver->print_left("just finished receiving the final output");
   return garbler_to_eval_final_output_msg.final_output;
 }
 

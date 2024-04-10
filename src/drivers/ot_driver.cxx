@@ -53,6 +53,7 @@ void OTDriver::OT_send(std::string m0, std::string m1)
   this->cli_driver->print_left("after DH_initialize");
   OT_pub_val_msg.public_value = g_to_a;
   auto OT_pub_val_msg_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &OT_pub_val_msg);
+  this->cli_driver->print_left("before send, after encrypt and tag");
   this->network_driver->send(OT_pub_val_msg_bytes);
   this->cli_driver->print_left("finished sampling public DH value");
 
@@ -94,9 +95,6 @@ void OTDriver::OT_send(std::string m0, std::string m1)
   auto OT_encrypted_vals_msg_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &sender_to_receiver_ot_encrypted_vals_msg);
   this->network_driver->send(OT_encrypted_vals_msg_bytes);
   this->cli_driver->print_left("finished sending encrypted values");
-
-  // Disconnect
-  this->network_driver->disconnect();
 }
 
 /*
