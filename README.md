@@ -3,11 +3,11 @@
 This project implements a simple version of Yao's Garbled Circuits with a corresponding implementation of Oblivious Transfer (OT). These cryptographic primitives are foundational in the realm of secure multi-party computation (SMPC), enabling two parties to collaboratively compute a function over their inputs while keeping the inputs private.
 
 ## Oblivious Transfer
-**Oblivious transfer**__ is a cryptographic protocol essential for secure multi-party computation. It allows a receiver to select one of two messages from a sender without revealing their choice to the sender, and the receiver learns nothing about the unselected message. Here are the steps for how it works:
+_**Oblivious transfer**_ is a cryptographic protocol essential for secure multi-party computation. It allows a receiver to select one of two messages from a sender without revealing their choice to the sender, and the receiver learns nothing about the unselected message. Here are the steps for how it works:
 
 1. **Message Preparation:** The sender prepares 2 messages, _m<sub>0</sub>_ and _m<sub>1</sub>_.
 2. **Key Exchange:** The sender generates a Diffie-Hellman (DH) key pair - _(a, g<sup>a</sup>)_ - and shares _g<sup>a</sup>_ with the receiver. The receiver then generates their DH key pair _(b, g<sup>b</sup>)_ and selects the key exchange response. If they wish to receive _m<sub>0</sub>_, they send _g<sup>b</sup>_. If they wish to receive _m<sub>1</sub>_, they send _g<sup>b</sup> * g<sup>a</sup>_.
-3. **Shared Keys:** Both parties compute shared keys using HKDF (a key derivation function). The sender computes _k<sub>0</sub>_ and _k<sub>1</sub>_ for both messages and the receiver computes _k<sub>s</sub> _(based on their choice bit _c_).
+3. **Shared Keys:** Both parties compute shared keys using HKDF (a key derivation function). The sender computes _k<sub>0</sub>_ and _k<sub>1</sub>_ for both messages and the receiver computes _k<sub>s</sub>_ (based on their choice bit _c_).
 4. **Message Encryption:** The sender encrypts _m<sub>0</sub>_ and _m<sub>1</sub>_ with _k<sub>0</sub>_ and _k<sub>1</sub>_, respectively, and sends both ciphertexts to the receiver.
 5. **Decryption:** The receiver decrypts their chosen ciphertext using _k<sub>s</sub>_.
 
