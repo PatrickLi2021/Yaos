@@ -46,16 +46,11 @@ OTDriver::OTDriver(
 void OTDriver::OT_send(std::string m0, std::string m1)
 {
   // Sample a public DH value and send it to the receiver
-  // Outputs of dh_initialize() are a (private key) and g^a (public key)
-  this->cli_driver->print_left("In OT_Send");
   SenderToReceiver_OTPublicValue_Message OT_pub_val_msg;
   auto [dh_obj, a, g_to_a] = this->crypto_driver->DH_initialize();
-  this->cli_driver->print_left("after DH_initialize");
   OT_pub_val_msg.public_value = g_to_a;
   auto OT_pub_val_msg_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &OT_pub_val_msg);
-  this->cli_driver->print_left("before send, after encrypt and tag");
   this->network_driver->send(OT_pub_val_msg_bytes);
-  this->cli_driver->print_left("finished sampling public DH value");
 
   // Receive the receiver's public value
   auto receiver_to_sender_msg_data = this->network_driver->read();
@@ -67,16 +62,11 @@ void OTDriver::OT_send(std::string m0, std::string m1)
     throw std::runtime_error("Could not decrypt the receiver to sender OT message");
   }
   receiver_to_sender_OT_pub_msg.deserialize(decrypted_receiver_to_sender_data);
-  this->cli_driver->print_left("receive the receiver's public value");
 
   // Encrypt m0 using key created via AES_generate_key and DH_generate_shared_key
   auto shared_key_m0 = this->crypto_driver->DH_generate_shared_key(dh_obj, a, receiver_to_sender_OT_pub_msg.public_value);
-  this->cli_driver->print_left("after DH_generate_key");
   auto k0 = this->crypto_driver->AES_generate_key(shared_key_m0);
-  this->cli_driver->print_left("after AES_generate_key");
   auto [e0, iv0] = this->crypto_driver->AES_encrypt(k0, m0);
-  this->cli_driver->print_left("after AES_encrypt");
-  this->cli_driver->print_left("finished encrypting m0");
 
   // Encrypt m1 using key created via AES_generate_key and DH_generate_shared_key
   auto A_inverse = CryptoPP::EuclideanMultiplicativeInverse(byteblock_to_integer(g_to_a), DL_P);
@@ -84,7 +74,6 @@ void OTDriver::OT_send(std::string m0, std::string m1)
   auto shared_key_m1 = this->crypto_driver->DH_generate_shared_key(dh_obj, a, integer_to_byteblock(b_times_A_inverse));
   auto k1 = this->crypto_driver->AES_generate_key(shared_key_m1);
   auto [e1, iv1] = this->crypto_driver->AES_encrypt(k1, m1);
-  this->cli_driver->print_left("finished encrypting m1");
 
   // Send the encrypted values
   SenderToReceiver_OTEncryptedValues_Message sender_to_receiver_ot_encrypted_vals_msg;
@@ -94,7 +83,6 @@ void OTDriver::OT_send(std::string m0, std::string m1)
   sender_to_receiver_ot_encrypted_vals_msg.iv1 = iv1;
   auto OT_encrypted_vals_msg_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &sender_to_receiver_ot_encrypted_vals_msg);
   this->network_driver->send(OT_encrypted_vals_msg_bytes);
-  this->cli_driver->print_left("finished sending encrypted values");
 }
 
 /*
@@ -117,7 +105,6 @@ std::string OTDriver::OT_recv(int choice_bit)
     throw std::runtime_error("Could not decrypt the receiver to sender OT message");
   }
   sender_to_receiver_OT_msg.deserialize(decrypted_sender_to_receiver_data);
-  this->cli_driver->print_left("just read the sender's public value");
 
   // Respond with our public value that depends on our choice bit
   ReceiverToSender_OTPublicValue_Message receiver_to_sender_OT_pub_msg;
@@ -133,12 +120,10 @@ std::string OTDriver::OT_recv(int choice_bit)
   }
   auto receiver_to_sender_OT_pub_val_bytes = this->crypto_driver->encrypt_and_tag(this->AES_key, this->HMAC_key, &receiver_to_sender_OT_pub_msg);
   this->network_driver->send(receiver_to_sender_OT_pub_val_bytes);
-  this->cli_driver->print_left("just sent the receiver's public value");
 
   // Generate the appropriate key (kc = KDF(A^b))
   auto shared_key = this->crypto_driver->DH_generate_shared_key(dh_obj, b, integer_to_byteblock(A));
   auto aes_shared_key = this->crypto_driver->AES_generate_key(shared_key);
-  this->cli_driver->print_left("generated the appropriate key");
 
   // Receive encrypted values from sender
   auto sender_to_receiver_encrypted_vals_msg_data = this->network_driver->read();
@@ -150,7 +135,6 @@ std::string OTDriver::OT_recv(int choice_bit)
     throw std::runtime_error("Could not decrypt the receiver to sender OT message");
   }
   sender_to_receiver_encrypted_vals_msg.deserialize(decrypted_sender_to_receiver_encrypted_msg_data);
-  this->cli_driver->print_left("received encrypted values from sender");
 
   // Decrypt the appropriate ciphertext
   std::string decryption;
@@ -162,6 +146,5 @@ std::string OTDriver::OT_recv(int choice_bit)
   {
     decryption = this->crypto_driver->AES_decrypt(aes_shared_key, sender_to_receiver_encrypted_vals_msg.iv0, sender_to_receiver_encrypted_vals_msg.e0);
   }
-  this->cli_driver->print_left("finished OT receive decryption");
   return decryption;
 }
